@@ -2,7 +2,7 @@
 //INTEGRATION TESTING WITHOUT SENSORS
 // Define the pin connected to the relay module
 #include <Servo.h>
-
+  
 Servo object;
 int angle = 0;
 #define RELAY_PIN_IN1 2 // Change this to the appropriate pin
@@ -51,6 +51,13 @@ void loop() {
 
   TurnOFFA();
   delay(1000);
+  
+    for(angle = 0; angle<=180; angle++)
+    {
+      object.write(angle);
+       delay(40);
+    }  
+    delay(5000);
   digitalWrite(dirPin,HIGH); // Enables the motor to move in a particular direction
   for(int x = 0; x < 800; x++) 
   {
@@ -61,23 +68,26 @@ void loop() {
   }
   delay(5000); // One second delay*/
 
-  for(angle = 0; angle<=180; angle++)
-    {
-      object.write(angle);
-       delay(40);
-    }  
-
   digitalWrite(RELAY_PIN_IN1, HIGH);
   digitalWrite(RELAY_PIN_IN2, LOW);
   delay(5000); // 5000 milliseconds = 5 seconds
+  digitalWrite(RELAY_PIN_IN1, LOW);
+  digitalWrite(RELAY_PIN_IN2, LOW);
 /*****************************************************************************************/
   // Turn off the motor for 5 seconds
+  delay(5000);
   TurnMotorAAntiCW(); 
   delay(5000);
 
-  TurnOFFA();
+  TurnOFFA();8
   delay(1000);
 
+        for(angle = 180; angle >= 0; angle--)
+      {
+        object.write(angle);
+        delay(40);
+      }
+      delay(5000);
   digitalWrite(dirPin,LOW); // Enables the motor to move in a particular direction
   for(int x = 0; x < 800; x++) 
   {
@@ -88,11 +98,7 @@ void loop() {
   }
   delay(5000);
 
-      for(angle = 180; angle >= 0; angle--)
-      {
-        object.write(angle);
-        delay(40);
-      }
+
 
   digitalWrite(RELAY_PIN_IN2, HIGH);
   digitalWrite(RELAY_PIN_IN1, LOW);

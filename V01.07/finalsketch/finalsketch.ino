@@ -10,6 +10,8 @@ long duration, distance;
 Servo GRIPPER;
 int angle = 0;
 int pos = 0; 
+bool currentstate = true;
+bool retractactuator = false; 
 
 #define RELAY_PIN_IN1_AC_MOTOR 2 // Change this to the appropriate pin
 #define RELAY_PIN_IN2_AC_MOTOR 3 // Change this to the appropriate pin
@@ -71,32 +73,61 @@ void ForwardRetrieval()
         duration = pulseIn(ECHO_PIN_US_SENSOR, HIGH);
         distance = (duration/2) / 29.1;
         delay(1500);
-        
+        GRIPPER.write(0);
 
-    if (distance < 10) 
+    if ((distance < 10) && retractactuator == false) 
     {
       //Stop Linear Actuator
       digitalWrite(RELAY_PIN_IN3_ACTUATOR, LOW);
       digitalWrite(RELAY_PIN_IN4_ACTUATOR, LOW);
       Serial.print(distance);
       Serial.println(" cm");
-      delay(3000);
-      //GRIPPER.write(180); // Set servo angle to open gripper
-            for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
-        // in steps of 1 degree
-      GRIPPER.write(pos);              // tell servo to go to position in variable 'pos'
-      delay(15);                       // waits 15ms for the servo to reach the position
-      } 
+      //delay(3000);
+      if(currentstate == true)
+      {
+          for (pos = 0; pos <= 180; pos += 1) 
+          { // goes from 0 degrees to 180 degrees
+              // in steps of 1 degree
+            GRIPPER.write(pos);              // tell servo to go to position in variable 'pos'
+            delay(15);                       // waits 15ms for the servo to reach the position
+          } 
 
-      for (pos = 180; pos >= 90; pos -= 1) { // goes from 180 degrees to 0 degrees
+          for (pos = 180; pos >= 0; pos -= 1) 
+          { // goes from 180 degrees to 0 degrees
 
-        GRIPPER.write(pos);              // tell servo to go to position in variable 'pos'
-        delay(15);      // waits 15ms for the servo to reach the position
-    }
+            GRIPPER.write(pos);              // tell servo to go to position in variable 'pos'
+            delay(15);      // waits 15ms for the servo to reach the position
+            
+          }
+
+      currentstate = false;
+      retractactuator = true;
+      }
+
       Serial.println("Grab Tray");
       delay(2000);
-      GRIPPER.detach();
     }
+
+          if(currentstate == false && retractactuator == true)
+      {
+           for (pos = 0; pos <= 180; pos += 1) 
+          { // goes from 0 degrees to 180 degrees
+              // in steps of 1 degree
+            GRIPPER.write(pos);              // tell servo to go to position in variable 'pos'
+            delay(15);                       // waits 15ms for the servo to reach the position
+          } 
+
+          for (pos = 180; pos >= 0; pos -= 1) 
+          { // goes from 180 degrees to 0 degrees
+
+            GRIPPER.write(pos);              // tell servo to go to position in variable 'pos'
+            delay(15);      // waits 15ms for the servo to reach the position
+            
+          }
+        retractactuator = false;
+        delay(1000);
+        BackwardStoring();
+      }
 
     else 
     {
@@ -142,3 +173,79 @@ void loop() {
   //delay(1000);
 
 }
+
+
+/*
+#include <Servo.h>
+
+const int trigPin = 10;
+const int echoPin = 11;
+
+
+const int trigPin1 = 12;
+const int echoPin1 = 13;
+
+// defines variables
+long duration;
+int distance;
+
+long duration2;
+int distance2;
+
+Servo myservo;  
+void setup() {
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
+    pinMode(trigPin1, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin1, INPUT); // Sets the echoPin as an Input
+  Serial.begin(9600); // Starts the serial communication
+
+    // Attach servos to pins
+  myservo.attach(9);
+
+  // Initialize servos position
+  myservo.write(0);
+
+}
+void loop() {
+  // Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  // Calculating the distance
+  distance = duration * 0.034 / 2;
+  // Prints the distance on the Serial Monitor
+  Serial.print("Distance: ");
+  Serial.println(distance);
+
+
+  // Clears the trigPin
+  digitalWrite(trigPin1, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin1, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin1, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration2 = pulseIn(echoPin1, HIGH);
+  // Calculating the distance
+  distance2 = duration2 * 0.034 / 2;
+  // Prints the distance on the Serial Monitor
+  Serial.print("Distance2: ");
+  Serial.println(distance2);
+
+
+  if (distance <= 10 && distance2 >=10) {
+    myservo.write(180);
+    delay(15);
+  } else if (distance2 <= 10 && distance >=10) {
+    myservo.write(0);
+    delay(15);
+  }
+
+}*/
