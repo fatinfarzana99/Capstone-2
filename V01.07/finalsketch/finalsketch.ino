@@ -1,5 +1,6 @@
 #include <Servo.h>
 #include <AccelStepper.h>
+#include <NewPing.h>
 
 Servo GRIPPER;  // create servo object to control a servo
 // twelve servo objects can be created on most boards
@@ -21,23 +22,31 @@ AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN_STEPPER_MOTOR, DIR_PIN_STEPP
 bool linearActuatorForwardFlag = false;
 bool linearActuatorBackwardFlag = false;
 
+#define TRIGGER_PIN_1  12
+#define ECHO_PIN_1     13
+#define TRIGGER_PIN_2  10  // Change to the pin number you're using for the second ultrasonic sensor
+#define ECHO_PIN_2     11  // Change to the pin number you're using for the second ultrasonic sensor
+#define MAX_DISTANCE 400 // Maximum distance we want to measure (in centimeters).
+
+NewPing sonar1(TRIGGER_PIN_1, ECHO_PIN_1, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 1
+NewPing sonar2(TRIGGER_PIN_2, ECHO_PIN_2, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
+
+
 
 void setup() {
   // put your setup code here, to run once:
+  Serial.begin(9600);
+
   pinMode(RELAY_PIN_IN3_ACTUATOR, OUTPUT);
   pinMode(RELAY_PIN_IN4_ACTUATOR, OUTPUT);
 
   pinMode(RELAY_PIN_IN1_AC_MOTOR, OUTPUT);
   pinMode(RELAY_PIN_IN2_AC_MOTOR, OUTPUT);
 
-  /*pinMode(STEP_PIN_STEPPER_MOTOR, OUTPUT);
-  pinMode(DIR_PIN_STEPPER_MOTOR, OUTPUT);
-  pinMode(EN_PIN_STEPPER_MOTOR, OUTPUT);
-  digitalWrite(EN_PIN_STEPPER_MOTOR, LOW);*/
   stepper.setMaxSpeed(1000);  // Adjust as needed
   stepper.setAcceleration(500);  // Adjust as needed
 
-    GRIPPER.attach(9);
+  GRIPPER.attach(9);
 }
 
  /***************************************************************************************/
@@ -194,11 +203,37 @@ void loop() {
   //LinearActuatorForward();
 
   //LinearActuatorGoDown();
-  //LinearActuatorGoUp();
+  LinearActuatorGoUp();
 
   //gripperTest();
 
+  /*************US SENSOR**/
+  /*delay(50);  // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
 
+  int distance1 = sonar1.ping_cm(); // Send ping from sensor 1, get distance in cm
+  int distance2 = sonar2.ping_cm(); // Send ping from sensor 2, get distance in cm
+
+  Serial.print("Distance Sensor 1: ");
+  Serial.print(distance1);
+  Serial.println("cm");
+
+  Serial.print("Distance Sensor 2: ");
+  Serial.print(distance2);
+  Serial.println("cm");
+
+  if((distance1 <= 10) && (distance2 <= 10))
+  {
+        for (pos = 0; pos <= 180; pos += 1) 
+        { 
+          GRIPPER.write(pos); // move the servo to the current position
+          delay(15); // wait for the servo to reach the position
+        }
+        while(1)
+        {
+
+        }
+
+  }*/
 
 
 
