@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <AccelStepper.h>
 
 Servo GRIPPER;  // create servo object to control a servo
 // twelve servo objects can be created on most boards
@@ -11,9 +12,11 @@ int pos = 0;    // variable to store the servo position
 #define RELAY_PIN_IN3_ACTUATOR 4 // Change this to the appropriate pin
 #define RELAY_PIN_IN4_ACTUATOR 5 // Change this to the appropriate pin
 
+#define STEPS_PER_REVOLUTION 200  // Change according to your motor's specifications
 #define STEP_PIN_STEPPER_MOTOR 6 // Change this to the appropriate pin
 #define DIR_PIN_STEPPER_MOTOR 7 // Change this to the appropriate pin
 #define EN_PIN_STEPPER_MOTOR 8 // Change this to the appropriate pin
+AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN_STEPPER_MOTOR, DIR_PIN_STEPPER_MOTOR);
 
 bool linearActuatorForwardFlag = false;
 bool linearActuatorBackwardFlag = false;
@@ -27,13 +30,14 @@ void setup() {
   pinMode(RELAY_PIN_IN1_AC_MOTOR, OUTPUT);
   pinMode(RELAY_PIN_IN2_AC_MOTOR, OUTPUT);
 
-  pinMode(STEP_PIN_STEPPER_MOTOR, OUTPUT);
+  /*pinMode(STEP_PIN_STEPPER_MOTOR, OUTPUT);
   pinMode(DIR_PIN_STEPPER_MOTOR, OUTPUT);
   pinMode(EN_PIN_STEPPER_MOTOR, OUTPUT);
-  digitalWrite(EN_PIN_STEPPER_MOTOR, LOW);
+  digitalWrite(EN_PIN_STEPPER_MOTOR, LOW);*/
+  stepper.setMaxSpeed(1000);  // Adjust as needed
+  stepper.setAcceleration(500);  // Adjust as needed
 
     GRIPPER.attach(9);
-    //GRIPPER.write(0);  
 }
 
 /****************************************************************************************/
@@ -87,15 +91,10 @@ void LinearActuatorOff()
 /****************************************************************************************/
 void stepperMotor()
 {
-  digitalWrite(DIR_PIN_STEPPER_MOTOR, HIGH);
-  for (int x = 0; x < 800; x++)
-  {
-    digitalWrite(STEP_PIN_STEPPER_MOTOR, HIGH );
-    delayMicroseconds(500);
-    digitalWrite(STEP_PIN_STEPPER_MOTOR, LOW);
-    delayMicroseconds(500);
-  }
-  delay(1000);
+  // Set the speed at which the stepper motor will rotate
+  stepper.setSpeed(-100); // Adjust as needed
+  // Rotate the motor continuously
+  stepper.runSpeed();
 }
 
 /****************************************************************************************/
@@ -176,10 +175,10 @@ void loop() {
   //RetrieveTrayEvent();
   //RotatePlatformEvent();
 
-  LinearActuatorBackward();
+  //LinearActuatorBackward();
   //LinearActuatorForward();
 
-  //stepperMotor();
+  stepperMotor();
 
   //gripperTest();
 
