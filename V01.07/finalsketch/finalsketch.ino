@@ -22,15 +22,21 @@ int pos = 0;    // variable to store the servo position
 #define DIR_PIN_STEPPER_MOTOR 7 // Change this to the appropriate pin
 #define EN_PIN_STEPPER_MOTOR 8 // Change this to the appropriate pin
 AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN_STEPPER_MOTOR, DIR_PIN_STEPPER_MOTOR);
+#define MAX_POSITION 0x7FFFFFFF // maximum of position we can set (long type)
+
 
 bool linearActuatorForwardFlag = false;
 bool linearActuatorBackwardFlag = false;
 bool PlatformDown = false;
+bool linearActuatorDown = false;
+bool isStopped = false;
 
 #define TRIGGER_PIN_1  12
 #define ECHO_PIN_1     13
 #define TRIGGER_PIN_2  10  // Change to the pin number you're using for the second ultrasonic sensor
 #define ECHO_PIN_2     11  // Change to the pin number you're using for the second ultrasonic sensor
+#define TRIGGER_PIN_3  51  // Change to the pin number you're using for the second ultrasonic sensor
+#define ECHO_PIN_3     53  // Change to the pin number you're using for the second ultrasonic sensor
 #define MAX_DISTANCE 400 // Maximum distance we want to measure (in centimeters).
 #define PING_INTERVAL 20 // Set the desired ping interval in milliseconds (e.g., 20ms for approximately 50 pings per second)
 unsigned long lastPingTime = 0; // Variable to store the time of the last ping
@@ -42,7 +48,7 @@ unsigned long lastPingTime = 0; // Variable to store the time of the last ping
 
 NewPing sonar1(TRIGGER_PIN_1, ECHO_PIN_1, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 1
 NewPing sonar2(TRIGGER_PIN_2, ECHO_PIN_2, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
-
+NewPing sonar3(TRIGGER_PIN_3, ECHO_PIN_3, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
 
 
 void setup() {
@@ -55,8 +61,12 @@ void setup() {
   pinMode(RELAY_PIN_IN1_AC_MOTOR, OUTPUT);
   pinMode(RELAY_PIN_IN2_AC_MOTOR, OUTPUT);
 
-  stepper.setMaxSpeed(1000);  // Adjust as needed
-  stepper.setAcceleration(500);  // Adjust as needed
+  stepper.setMaxSpeed(200.0);   // set the maximum speed
+  stepper.setAcceleration(6); // set acceleration
+  //stepper.setSpeed(100);         // set initial speed
+  stepper.setCurrentPosition(0); // set position
+
+  stepper.moveTo(MAX_POSITION);
 
   GRIPPER.attach(9);
 
@@ -255,35 +265,20 @@ void gripperClose()
 void StopLinearActuatorAndBelt()
 {
 
-
-
-  if(limitSwitch2.isPressed())
-    Serial.println("The limit switch 2: UNTOUCHED -> TOUCHED");
-
-  if(limitSwitch2.isReleased())
-    Serial.println("The limit switch 2: TOUCHED -> UNTOUCHED");
-
-  int state2 = limitSwitch2.getState();
-  if(state2 == HIGH)
-  {    Serial.println("The limit switch 2: UNTOUCHED");
-       
-       //LinearActuatorGoUp();
-       //LinearActuatorGoStop();
-      // RotatePlatformDownEvent();
-      LinearActuatorGoStop();
+  if (limitSwitch.isPressed()) {
+    Serial.println(F("The limit switch: TOUCHED"));
+    isStopped = true;
   }
 
-  else
-  {
-    Serial.println("The limit switch 2: TOUCHED");
-    LinearActuatorGoDown();
-    //StopPlatformRotation();
+  if (isStopped == false) {
+    stepper.run(); // MUST be called in loop() function
+  } else {
+    // without calling stepper.run() function, motor stops immediately
+    // NOTE: stepper.stop() function does NOT stops motor immediately
+    Serial.println(F("The stepper motor is STOPPED"));
+  }
 
     
-  }
-
- // 
-
 }
  /***********************************************************************************/
   
@@ -291,25 +286,27 @@ void StopLinearActuatorAndBelt()
 
 void loop() {
   // put your main code here, to run repeatedly:
-  
+  /************UNIT TESTING**************/
   //RetrieveTrayEvent();
-  //RotatePlatformEvent();
-
+  //StopPlatformRotation();
+ // RotatePlatformUpEvent();
+ // RotatePlatformDownEvent();
   //LinearActuatorBackward();
   //LinearActuatorForward();
-
   //LinearActuatorGoDown();
   //LinearActuatorGoUp();
+  /************UNIT TESTING**************/
 
 
 
-  //delay(1000);
 
-  //gripperClose();
-  /*************US SENSOR******************************************************/
-    /*unsigned long currentTime = millis();
+
+  /*********************************MAIN ENTRY*************************************/
+    limitSwitch.loop(); 
+    unsigned long currentTime = millis();
     int distance1 = sonar1.ping_cm(); // Send ping from sensor 1, get distance in cm
     int distance2 = sonar2.ping_cm(); // Send ping from sensor 2, get distance in cm
+    int distance3 = sonar3.ping_cm(); // Send ping from sensor 2, get distance in cm
     // Check if it's time to send another ping
     if (currentTime - lastPingTime >= PING_INTERVAL) {
       // Send pings from both sensors
@@ -321,6 +318,10 @@ void loop() {
 
       Serial.print("Distance Sensor 2: ");
       Serial.print(distance2);
+      Serial.println("cm");
+
+      Serial.print("Distance Sensor 3: ");
+      Serial.print(distance3);
       Serial.println("cm");
 
       // Update last ping time
@@ -335,7 +336,7 @@ void loop() {
         linearActuatorBackwardFlag = true;
     }
 
-    else
+    else if((distance1 > 10) && (distance2 > 10))
     {
       gripperOpen();
       //LinearActuatorForward();
@@ -343,53 +344,75 @@ void loop() {
       linearActuatorForwardFlag = true;
     }
 
+      if (limitSwitch.isPressed()) 
+    {
+      Serial.println(F("The limit switch: TOUCHED"));
+      isStopped = true;
+    }
+
+    if((distance1 <= 10) && (distance2 <= 10) && (distance3 <= 10) && (isStopped == false))
+    {
+        RotatePlatformDownEvent();
+    }
+
+    else if((distance1 <= 10) && (distance2 <= 10) && (distance3 <= 10) && (isStopped == true))
+    {
+        StopPlatformRotation();
+    }
+
+
+
+
+    /****************************************************************************/
+
     if(linearActuatorBackwardFlag == true)
     {
+      gripperClose();
       LinearActuatorBackward();
-      PlatformDown = true;
-      linearActuatorBackwardFlag = false;
+      linearActuatorBackwardFlag = false;  
+      
     }
 
     else if(linearActuatorBackwardFlag == false)
     {
       LinearActuatorForward();
+      
     }
-    
-    if(PlatformDown == true)
+
+    /*if(PlatformDown == true)
     {
-      StopLinearActuatorAndBelt();
-      PlatformDown = false;
+        LinearActuatorForward();
     }*/
-    limitSwitch.loop(); // MUST call the loop() function first
-    limitSwitch2.loop(); // MUST call the loop() function first
 
-  if(limitSwitch.isPressed())
-    Serial.println("The limit switch 1: UNTOUCHED -> TOUCHED");
 
-  if(limitSwitch.isReleased())
-    Serial.println("The limit switch 1: TOUCHED -> UNTOUCHED");
 
-  int state = limitSwitch.getState();
-  if(state == HIGH)
-  {
-    Serial.println("The limit switch 1: UNTOUCHED");
-    //RotatePlatformUpEvent();
-    //RotatePlatformDownEvent();
-    //StopPlatformRotation();
-    LinearActuatorGoStop();
-  }
 
-  else
-  {
-    Serial.println("The limit switch 1: TOUCHED");  
-    //StopPlatformRotation();
+
+
+    /**************************************************************************/
+
+            /*if (limitSwitch.isPressed()) {
+        Serial.println(F("The limit switch: TOUCHED"));
+        isStopped = true;
+      }
+
+      if (isStopped == false) {
+        // MUST be called in loop() function
+        stepper.setSpeed(100);
+        stepper.run(); 
+        //PlatformDown = false;
+        linearActuatorBackwardFlag = false;
+      } else {
+        // without calling stepper.run() function, motor stops immediately
+        // NOTE: stepper.stop() function does NOT stops motor immediately
+        Serial.println(F("The stepper motor is STOPPED"));
+        //stepper.run(); 
+      }*/
+
+    /**************************************************************************/
+
+
     
-    LinearActuatorGoUp();
-  }
-  
- // StopLinearActuatorAndBelt();
-
-
 
 }
 
