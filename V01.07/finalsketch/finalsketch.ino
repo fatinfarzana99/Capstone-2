@@ -24,7 +24,6 @@ int pos = 0;    // variable to store the servo position
 AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN_STEPPER_MOTOR, DIR_PIN_STEPPER_MOTOR);
 #define MAX_POSITION 0x7FFFFFFF // maximum of position we can set (long type)
 
-
 bool linearActuatorForwardFlag = false;
 bool linearActuatorBackwardFlag = false;
 bool PlatformDown = false;
@@ -37,6 +36,11 @@ bool isStopped = false;
 #define ECHO_PIN_2     11  // Change to the pin number you're using for the second ultrasonic sensor
 #define TRIGGER_PIN_3  51  // Change to the pin number you're using for the second ultrasonic sensor
 #define ECHO_PIN_3     53  // Change to the pin number you're using for the second ultrasonic sensor
+#define TRIGGER_PIN_4  46  // Change to the pin number you're using for the second ultrasonic sensor
+#define ECHO_PIN_4     48  // Change to the pin number you're using for the second ultrasonic sensor
+#define TRIGGER_PIN_5  42  // Change to the pin number you're using for the second ultrasonic sensor
+#define ECHO_PIN_5     44  // Change to the pin number you're using for the second ultrasonic sensor
+
 #define MAX_DISTANCE 400 // Maximum distance we want to measure (in centimeters).
 #define PING_INTERVAL 20 // Set the desired ping interval in milliseconds (e.g., 20ms for approximately 50 pings per second)
 unsigned long lastPingTime = 0; // Variable to store the time of the last ping
@@ -49,10 +53,11 @@ unsigned long lastPingTime = 0; // Variable to store the time of the last ping
 NewPing sonar1(TRIGGER_PIN_1, ECHO_PIN_1, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 1
 NewPing sonar2(TRIGGER_PIN_2, ECHO_PIN_2, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
 NewPing sonar3(TRIGGER_PIN_3, ECHO_PIN_3, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
+NewPing sonar4(TRIGGER_PIN_4, ECHO_PIN_4, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
+NewPing sonar5(TRIGGER_PIN_5, ECHO_PIN_5, MAX_DISTANCE); // NewPing setup of pins and maximum distance for sensor 2
 
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(9600);
 
   pinMode(RELAY_PIN_IN3_ACTUATOR, OUTPUT);
@@ -61,54 +66,43 @@ void setup() {
   pinMode(RELAY_PIN_IN1_AC_MOTOR, OUTPUT);
   pinMode(RELAY_PIN_IN2_AC_MOTOR, OUTPUT);
 
-  stepper.setMaxSpeed(200.0);   // set the maximum speed
-  stepper.setAcceleration(6); // set acceleration
-  //stepper.setSpeed(100);         // set initial speed
+  stepper.setMaxSpeed(50.0);   // set the maximum speed
+  stepper.setAcceleration(30.0); // set acceleration
+  stepper.setSpeed(30);         // set initial speed
   stepper.setCurrentPosition(0); // set position
-
   stepper.moveTo(MAX_POSITION);
 
   GRIPPER.attach(9);
 
   limitSwitch.setDebounceTime(50); // set debounce time to 50 milliseconds
   limitSwitch2.setDebounceTime(50); // set debounce time to 50 milliseconds
-
 }
-void LimitSwitches()
+
+void StepperGoDown()
 {
   limitSwitch.loop(); // MUST call the loop() function first
-  limitSwitch2.loop(); // MUST call the loop() function first
 
-  /***********************LIMIT SWITCH 1*****************************/
-  if(limitSwitch.isPressed())
-    Serial.println("The limit switch 1: UNTOUCHED -> TOUCHED");
+  if (limitSwitch.isPressed()) {
+    Serial.println(F("The limit switch: TOUCHED"));
+    isStopped = true;
+  }
 
-  if(limitSwitch.isReleased())
-    Serial.println("The limit switch 1: TOUCHED -> UNTOUCHED");
+  if (isStopped == false) {
+    // without this part, the move will stop after reaching maximum position
+    if (stepper.distanceToGo() == 0) { // if motor moved to the maximum position
+      stepper.setCurrentPosition(0);   // reset position to 0
+      stepper.moveTo(MAX_POSITION);       // move the motor to maximum position again
+    }
 
-  int state = limitSwitch.getState();
-  if(state == HIGH)
-    Serial.println("The limit switch 1: UNTOUCHED");
-  else
-    Serial.println("The limit switch 1: TOUCHED");
-
-  /***********************LIMIT SWITCH 2*****************************/
-  if(limitSwitch2.isPressed())
-    Serial.println("The limit switch 2: UNTOUCHED -> TOUCHED");
-
-  if(limitSwitch2.isReleased())
-    Serial.println("The limit switch 2: TOUCHED -> UNTOUCHED");
-
-  int state2 = limitSwitch2.getState();
-  if(state2 == HIGH)
-    Serial.println("The limit switch 2: UNTOUCHED");
-  else
-    Serial.println("The limit switch 2: TOUCHED");
+    stepper.run(); // MUST be called in loop() function
+  } else {
+    // without calling stepper.run() function, motor stops immediately
+    // NOTE: stepper.stop() function does NOT stops motor immediately
+    Serial.println(F("The stepper motor is STOPPED"));
+  }
 }
 
- /***************************************************************************************/
- /**********************************AC MOTOR*********************************************/
-/****************************************************************************************/
+/**********************************AC MOTOR***********************************/
 void RotatePlatformUpEvent()
 {   
     digitalWrite(RELAY_PIN_IN1_AC_MOTOR, HIGH);
@@ -135,11 +129,10 @@ void StopPlatformRotation()
     digitalWrite(RELAY_PIN_IN2_AC_MOTOR, LOW);
 
 }
-/****************************************************************************************/
+/**********************************AC MOTOR***********************************/
 
- /***************************************************************************************/
- /**********************************LINEAR ACTUATOR****************************************/
-/****************************************************************************************/
+
+/**********************************LINEAR ACTUATOR***********************************/
 void LinearActuatorBackward()
 {
     digitalWrite(RELAY_PIN_IN3_ACTUATOR, HIGH);
@@ -150,6 +143,7 @@ void LinearActuatorBackward()
     
     linearActuatorBackwardFlag = true;
 }
+
 void LinearActuatorForward()
 {
     digitalWrite(RELAY_PIN_IN3_ACTUATOR, LOW);
@@ -158,81 +152,37 @@ void LinearActuatorForward()
     //delay(60000); // Delay for 1 minute
     //delay(43000); // Delay for 43 seconds // wait for a second
 }
+
 void LinearActuatorOff()
 {
     digitalWrite(RELAY_PIN_IN3_ACTUATOR, LOW);
     digitalWrite(RELAY_PIN_IN4_ACTUATOR, LOW);
 }
-/****************************************************************************************/
+/**********************************LINEAR ACTUATOR***********************************/
 
- /***************************************************************************************/
- /**********************************STEPPER MOTOR****************************************/
-/****************************************************************************************/
+
+/**********************************STEPPER MOTOR***********************************/
 void LinearActuatorGoDown()
 {
-  // Set the speed at which the stepper motor will rotate
-  stepper.setSpeed(-300); // Adjust as needed
-  // Rotate the motor continuously
-  stepper.runSpeed();
-
+    stepper.setSpeed(-50);
+    stepper.runSpeed();
 }
 
 void LinearActuatorGoUp()
 {
-  // Set the speed at which the stepper motor will rotate
-  stepper.setSpeed(300); // Adjust as needed
-  // Rotate the motor continuously
-  stepper.runSpeed();
+    stepper.setSpeed(50);
+    stepper.runSpeed();
 }
 
 void LinearActuatorGoStop()
 {
-  // Set the speed at which the stepper motor will rotate
-  stepper.setSpeed(0); // Adjust as needed
-  // Rotate the motor continuously
+  stepper.setSpeed(0); 
   stepper.runSpeed();
 }
+/**********************************STEPPER MOTOR***********************************/
 
-/****************************************************************************************/
 
-void RetrieveTrayEvent()
-{
-  // Sweep from 0 to 180 degrees
-  for (pos = 0; pos <= 180; pos += 1) { 
-    GRIPPER.write(pos); // move the servo to the current position
-    delay(15); // wait for the servo to reach the position
-  }
-  
-  // Sweep from 180 to 0 degrees
-  for (pos = 180; pos >= 0; pos -= 1) {
-    GRIPPER.write(pos); // move the servo to the current position
-    delay(15); // wait for the servo to reach the position
-  }
-    LinearActuatorForward();
-  // Optional delay before returning to original position
-    for (pos = 0; pos <= 90; pos += 1) { 
-    GRIPPER.write(pos); // move the servo to the current position
-    delay(15); // wait for the servo to reach the position
-  }
-    delay(2000);
-
-    LinearActuatorBackward();
-    delay(2000);
-
-  // Sweep from current position to 180 degrees
-    for (pos = 0; pos <= 180; pos += 1) { 
-    GRIPPER.write(pos); // move the servo to the current position
-    delay(15); // wait for the servo to reach the position
-  }
-
-    // Sweep from 180 to 0 degrees
-  for (pos = 180; pos >= 0; pos -= 1) {
-    GRIPPER.write(pos); // move the servo to the current position
-    delay(15); // wait for the servo to reach the position
-  }
-}
-
- /***********************************************************************************/
+/**********************************GRIPPER ARM***********************************/
 void gripperOpen()
 {
 
@@ -260,6 +210,7 @@ void gripperClose()
 
     }*/
 }
+/**********************************GRIPPER ARM***********************************/
 
 
 void StopLinearActuatorAndBelt()
@@ -280,33 +231,67 @@ void StopLinearActuatorAndBelt()
 
     
 }
- /***********************************************************************************/
-  
 
+void RetrieveTray()
+{
+      /*if((distance1 <= 10) && (distance2 <= 10)) //if tray is detected
+    {
+        gripperClose(); // close the gripper 
+        delay(1000); //1 second dealay
+        linearActuatorBackwardFlag = true; //set flag for actuator to retract
+    }
+
+    else if((distance1 > 10) && (distance2 > 10))
+    {
+      gripperOpen(); // open gripper
+      linearActuatorForwardFlag = true;
+    }
+    
+    if(linearActuatorBackwardFlag == true) // set when tray detected
+    {
+      gripperClose(); // close gripper
+      LinearActuatorBackward(); // set linear actuator to retract
+      linearActuatorBackwardFlag = false;   // reset flag
+    }
+
+    else if(linearActuatorBackwardFlag == false) // default is false
+    {
+      LinearActuatorForward(); // linear actuator forward to start retrieval
+    }*/
+
+}
+
+ /***********************************************************************************/
 
 void loop() {
   // put your main code here, to run repeatedly:
   /************UNIT TESTING**************/
   //RetrieveTrayEvent();
   //StopPlatformRotation();
- // RotatePlatformUpEvent();
- // RotatePlatformDownEvent();
+  //RotatePlatformUpEvent();
+  //RotatePlatformDownEvent();
   //LinearActuatorBackward();
   //LinearActuatorForward();
   //LinearActuatorGoDown();
   //LinearActuatorGoUp();
   /************UNIT TESTING**************/
 
+//StopPlatformRotation();
 
-
+//LinearActuatorGoDown();
+//delay(50);
+//LinearActuatorGoStop();
 
 
   /*********************************MAIN ENTRY*************************************/
-    limitSwitch.loop(); 
+    limitSwitch.loop(); // MUST call the loop() function first
     unsigned long currentTime = millis();
     int distance1 = sonar1.ping_cm(); // Send ping from sensor 1, get distance in cm
     int distance2 = sonar2.ping_cm(); // Send ping from sensor 2, get distance in cm
     int distance3 = sonar3.ping_cm(); // Send ping from sensor 2, get distance in cm
+    int distance4 = sonar4.ping_cm(); // Send ping from sensor 2, get distance in cm
+    int distance5 = sonar5.ping_cm(); // Send ping from sensor 2, get distance in cm
+
     // Check if it's time to send another ping
     if (currentTime - lastPingTime >= PING_INTERVAL) {
       // Send pings from both sensors
@@ -324,95 +309,93 @@ void loop() {
       Serial.print(distance3);
       Serial.println("cm");
 
+      Serial.print("Distance Sensor 4: ");
+      Serial.print(distance4);
+      Serial.println("cm");
+
+      Serial.print("Distance Sensor 5: ");
+      Serial.print(distance5);
+      Serial.println("cm");      
       // Update last ping time
       lastPingTime = currentTime;
     }
 
-    if((distance1 <= 10) && (distance2 <= 10))
+    if((distance1 <= 3) && (distance2 <= 3)) //if tray is detected
     {
-        gripperClose();
-        delay(1000);
-        //LinearActuatorBackward();
-        linearActuatorBackwardFlag = true;
+        gripperClose(); // close the gripper 
+        LinearActuatorBackward();
+        linearActuatorBackwardFlag = true; //set flag for actuator to retract
     }
 
     else if((distance1 > 10) && (distance2 > 10))
     {
-      gripperOpen();
-      //LinearActuatorForward();
-      //LinearActuatorBackward();
+      gripperOpen(); // open gripper
+      LinearActuatorForward();
       linearActuatorForwardFlag = true;
     }
 
-      if (limitSwitch.isPressed()) 
+    if((distance1 <= 10) && (distance2 <= 10) && (distance3 <= 10) )
     {
-      Serial.println(F("The limit switch: TOUCHED"));
-      isStopped = true;
+      PlatformDown = true;
+      //RotatePlatformDownEvent();
+      LinearActuatorGoDown();
     }
 
-    if((distance1 <= 10) && (distance2 <= 10) && (distance3 <= 10) && (isStopped == false))
+    else if((distance1 <= 10) && (distance2 <= 10) && (distance3 > 10) )
     {
+      LinearActuatorGoStop();
+      //StopPlatformRotation();
+    }
+
+
+    if (limitSwitch.isPressed()) 
+    {
+        Serial.println(F("The limit switch: TOUCHED"));
+        isStopped = true;
+    }
+
+    if ((isStopped == false) && (distance3 <= 10)) 
+    {
+        // without this part, the move will stop after reaching maximum position
+        if (stepper.distanceToGo() == 0) 
+        { // if motor moved to the maximum position
+          stepper.setCurrentPosition(0);   // reset position to 0
+          stepper.moveTo(MAX_POSITION);       // move the motor to maximum position again
+        }
         RotatePlatformDownEvent();
-    }
-
-    else if((distance1 <= 10) && (distance2 <= 10) && (distance3 <= 10) && (isStopped == true))
+        stepper.run(); // MUST be called in loop() function
+    } 
+    else 
     {
+        // without calling stepper.run() function, motor stops immediately
+        // NOTE: stepper.stop() function does NOT stops motor immediately
+        Serial.println(F("The stepper motor is STOPPED"));
         StopPlatformRotation();
     }
 
 
-
-
-    /****************************************************************************/
-
-    if(linearActuatorBackwardFlag == true)
+/*************************************************************************************/
+    /*if((distance1 <= 10) && (distance2 <= 10) && (distance3 <= 10) )
     {
-      gripperClose();
-      LinearActuatorBackward();
-      linearActuatorBackwardFlag = false;  
-      
+      PlatformDown = true;
+      //RotatePlatformDownEvent();
+      //LinearActuatorGoDown();
     }
 
-    else if(linearActuatorBackwardFlag == false)
+    else if((distance1 <= 10) && (distance2 <= 10) && (distance3 > 10) )
     {
-      LinearActuatorForward();
-      
+      //RotatePlatformDownEvent();
+      StopPlatformRotation();    
     }
 
-    /*if(PlatformDown == true)
+    if(PlatformDown == true)
     {
-        LinearActuatorForward();
+      LinearActuatorGoDown();
+      RotatePlatformDownEvent();
+      PlatformDown = false;
     }*/
+    //LinearActuatorGoDown();
 
-
-
-
-
-
-    /**************************************************************************/
-
-            /*if (limitSwitch.isPressed()) {
-        Serial.println(F("The limit switch: TOUCHED"));
-        isStopped = true;
-      }
-
-      if (isStopped == false) {
-        // MUST be called in loop() function
-        stepper.setSpeed(100);
-        stepper.run(); 
-        //PlatformDown = false;
-        linearActuatorBackwardFlag = false;
-      } else {
-        // without calling stepper.run() function, motor stops immediately
-        // NOTE: stepper.stop() function does NOT stops motor immediately
-        Serial.println(F("The stepper motor is STOPPED"));
-        //stepper.run(); 
-      }*/
-
-    /**************************************************************************/
-
-
-    
 
 }
 
